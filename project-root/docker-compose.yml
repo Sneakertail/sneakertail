@@ -1,0 +1,77 @@
+version: '3.8'
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  postgres:
+    image: postgres:14-alpine
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: devpassword
+      POSTGRES_DB: sneakerdb
+    ports:
+      - "5432:5432"
+
+  auth-service:
+    build: ./auth-service
+    ports:
+      - "3001:3001"
+    environment:
+      - DB_HOST=postgres
+      - DB_USER=admin
+      - DB_PASSWORD=devpassword
+      - DB_NAME=sneakerdb
+      - PORT=3001
+      - JWT_SECRET=secretkey
+    depends_on:
+      - postgres
+
+  product-service:
+    build: ./product-service
+    ports:
+      - "3002:3002"
+    environment:
+      - DB_HOST=postgres
+      - DB_USER=admin
+      - DB_PASSWORD=devpassword
+      - DB_NAME=sneakerdb
+      - PORT=3002
+    depends_on:
+      - postgres
+
+  raffle-service:
+    build: ./raffle-service
+    ports:
+      - "3003:3003"
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - PORT=3003
+    depends_on:
+      - redis
+
+  interaction-service:
+    build: ./interaction-service
+    ports:
+      - "3004:3004"
+    environment:
+      - DB_HOST=postgres
+      - DB_USER=admin
+      - DB_PASSWORD=devpassword
+      - DB_NAME=sneakerdb
+      - PORT=3004
+    depends_on:
+      - postgres
+
+  payment-service:
+    build: ./payment-service
+    ports:
+      - "3005:3005"
+    environment:
+      - PORT=3005
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "8080:80"
