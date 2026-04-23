@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 
 function Wishlist() {
     const [items, setItems] = useState([]);
-    const PRODUCT_API = 'http://localhost:3002/api/products';
+    const PRODUCT_API = process.env.REACT_APP_PRODUCT_API || 'http://localhost:3002/api/products';
 
     useEffect(() => {
         const wishlistIds = JSON.parse(localStorage.getItem('wishlist') || '[]');

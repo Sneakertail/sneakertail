@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 function Login({ setUser, setMessage }) {
     const [username, setUsername] = useState('user');
     const [password, setPassword] = useState('user');
-    const AUTH_API = 'http://localhost:3001/api/auth';
+    const AUTH_API = process.env.REACT_APP_AUTH_API || 'http://localhost:3001/api/auth';
     const navigate = useNavigate();
 
     const submit = (e) => {

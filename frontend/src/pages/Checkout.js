@@ -4,8 +4,8 @@ import { useNavigate } from 'react-router-dom';
 function Checkout({ user, setMessage }) {
     const [items, setItems] = useState([]);
     const [total, setTotal] = useState(0);
-    const PRODUCT_API = 'http://localhost:3002/api/products';
-    const PAYMENT_API = 'http://localhost:3005/api/payment';
+    const PRODUCT_API = process.env.REACT_APP_PRODUCT_API || 'http://localhost:3002/api/products';
+    const PAYMENT_API = process.env.REACT_APP_PAYMENT_API || 'http://localhost:3005/api/payment';
     const navigate = useNavigate();
 
     useEffect(() => {

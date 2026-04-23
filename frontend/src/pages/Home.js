@@ -3,10 +3,10 @@ import React, { useState, useEffect } from 'react';
 function Home({ user, setMessage }) {
     const [products, setProducts] = useState([]);
 
-    const PRODUCT_API = 'http://localhost:3002/api/products';
-    const RAFFLE_API = 'http://localhost:3003/api/raffle';
-    const INTERACTION_API = 'http://localhost:3004/api';
-    const PAYMENT_API = 'http://localhost:3005/api/payment';
+    const PRODUCT_API = process.env.REACT_APP_PRODUCT_API || 'http://localhost:3002/api/products';
+    const RAFFLE_API = process.env.REACT_APP_RAFFLE_API || 'http://localhost:3003/api/raffle';
+    const INTERACTION_API = process.env.REACT_APP_INTERACTION_API || 'http://localhost:3004/api';
+    const PAYMENT_API = process.env.REACT_APP_PAYMENT_API || 'http://localhost:3005/api/payment';
 
     useEffect(() => {
         fetch(PRODUCT_API)

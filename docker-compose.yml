@@ -71,6 +71,13 @@ services:
       - PORT=3005
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      args:
+        REACT_APP_AUTH_API: "http://65.0.183.246:3001/api/auth"
+        REACT_APP_PRODUCT_API: "http://65.0.183.246:3002/api/products"
+        REACT_APP_RAFFLE_API: "http://65.0.183.246:3003/api/raffle"
+        REACT_APP_INTERACTION_API: "http://65.0.183.246:3004/api"
+        REACT_APP_PAYMENT_API: "http://65.0.183.246:3005/api/payment"
     ports:
       - "8080:80"
