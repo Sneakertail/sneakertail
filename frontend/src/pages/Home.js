@@ -135,7 +135,7 @@ function Home({ user, showToast, onCartUpdate }) {
                                 <span className="section-badge">LIVE</span>
                             </div>
                             <p className="raffle-section-sub">Enter for a chance to cop — winners drawn randomly. No direct purchase available.</p>
-                            <div className="product-grid">
+                            <div className="raffle-grid">
                                 {raffleProducts.map(product => (
                                     <div key={product.id} className="raffle-card">
                                         <span className="raffle-badge">🎰 RAFFLE</span>

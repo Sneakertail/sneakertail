@@ -140,7 +140,7 @@ function Login({ setUser, showToast }) {
                 {/* ─── REGISTER FORM ─── */}
                 {tab === 'register' && (
                     <form onSubmit={handleRegister}>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 14px' }}>
+                        <div className="form-grid">
                             <div className="form-group">
                                 <label className="form-label">First Name *</label>
                                 <input
@@ -180,7 +180,7 @@ function Login({ setUser, showToast }) {
                                 autoComplete="username"
                             />
                         </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 14px' }}>
+                        <div className="form-grid">
                             <div className="form-group">
                                 <label className="form-label">Password *</label>
                                 <input

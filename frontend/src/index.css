@@ -125,7 +125,12 @@ img{display:block;max-width:100%}
 /* ─── PRODUCT GRID ───────────────────────────────────────────────── */
 .product-grid{
   display:grid;
-  grid-template-columns:repeat(auto-fill,minmax(260px,340px));
+  grid-template-columns:repeat(auto-fill,minmax(260px,1fr));
+  gap:20px;
+}
+.raffle-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(240px,1fr));
   gap:20px;
 }
 
@@ -308,9 +313,11 @@ img{display:block;max-width:100%}
 .auth-title{font-size:26px;font-weight:800;margin-bottom:4px}
 .auth-sub{font-size:14px;color:var(--text2);margin-bottom:32px}
 .form-group{display:flex;flex-direction:column;gap:8px;margin-bottom:16px}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 16px}
+.form-grid .form-group{margin-bottom:16px}
 .form-label{font-size:13px;font-weight:600;color:var(--text2)}
 .form-input{
-  background:var(--bg3);border:1px solid var(--border);
+  width:100%;background:var(--bg3);border:1px solid var(--border);
   border-radius:10px;padding:12px 14px;
   color:var(--text);font-size:14px;font-family:'Inter',sans-serif;
   transition:var(--transition);outline:none;
