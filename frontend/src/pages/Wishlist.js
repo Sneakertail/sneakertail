@@ -24,7 +24,7 @@ function Wishlist() {
     };
 
     return (
-        <div style={{ padding: 20 }}>
+        <div className="container" style={{ padding: 20 }}>
             <h2>Wishlist</h2>
             {items.length === 0 ? (
                 <p>Wishlist is empty</p>
@@ -33,7 +33,7 @@ function Wishlist() {
                     {items.map(it => (
                         <div key={it.id}>{it.name} - ${it.price}</div>
                     ))}
-                    <button onClick={clearWishlist} style={{ marginTop: 10 }}>Clear Wishlist</button>
+                    <button onClick={clearWishlist} style={{ marginTop: 10 }} className="btn">Clear Wishlist</button>
                 </div>
             )}
         </div>

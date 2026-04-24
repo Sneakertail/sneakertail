@@ -18,6 +18,7 @@ function Login({ setUser, setMessage }) {
             .then(data => {
                 if (data.token) {
                     setUser(data);
+                    try { localStorage.setItem('user', JSON.stringify(data)); } catch { }
                     setMessage('Logged in');
                     navigate('/');
                     setTimeout(() => setMessage(''), 2000);
@@ -29,7 +30,7 @@ function Login({ setUser, setMessage }) {
     };
 
     return (
-        <div style={{ padding: 20 }}>
+        <div className="container" style={{ padding: 20 }}>
             <h2>Login</h2>
             <form onSubmit={submit}>
                 <div style={{ marginBottom: 8 }}>
@@ -38,7 +39,7 @@ function Login({ setUser, setMessage }) {
                 <div style={{ marginBottom: 8 }}>
                     <input value={password} type="password" onChange={e => setPassword(e.target.value)} />
                 </div>
-                <button type="submit">Login</button>
+                <button type="submit" className="btn btn-primary">Login</button>
             </form>
         </div>
     );

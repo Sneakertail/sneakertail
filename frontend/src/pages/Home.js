@@ -13,7 +13,7 @@ function Home({ user, setMessage }) {
             .then(res => res.json())
             .then(data => setProducts(data))
             .catch(console.error);
-    }, []);
+    }, [PRODUCT_API]);
 
     const executeAction = (url, bodyParams, successMsg) => {
         if (!user) return setMessage('Please login first');
@@ -40,25 +40,40 @@ function Home({ user, setMessage }) {
     };
 
     return (
-        <div style={{ padding: 20 }}>
-            <h2>Products</h2>
-            <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
-                {products.map(product => (
-                    <div key={product.id} style={{ border: '1px solid #ccc', padding: 10, width: 260 }}>
-                        <h3>{product.name} - ${product.price}</h3>
-                        {product.raffleActive ? (
-                            <button onClick={() => executeAction(`${RAFFLE_API}/enter`, { productId: product.id }, 'Entered Raffle!')}>Enter Raffle</button>
-                        ) : (
-                            <button onClick={() => executeAction(`${INTERACTION_API}/cart/add`, { productId: product.id }, 'Added to Cart!')}>Add to Cart</button>
-                        )}
-                        <button onClick={() => executeAction(`${INTERACTION_API}/wishlist/add`, { productId: product.id }, 'Added to Wishlist!')} style={{ marginLeft: 10 }}>
-                            Wishlist
-                        </button>
-                        <button onClick={() => executeAction(`${PAYMENT_API}/process`, { amount: product.price }, 'Payment Processed!')} style={{ marginLeft: 10, background: 'green', color: 'white' }}>
-                            Buy Now
-                        </button>
-                    </div>
-                ))}
+        <div>
+            <div className="hero">
+                <div>
+                    <h1 className="hero-title">SNEAKERTAIL</h1>
+                    <p className="hero-sub">Premium drops and raffles — cop your favorite sneakers.</p>
+                </div>
+            </div>
+
+            <div className="container">
+                <h2>Products</h2>
+                <div className="product-grid">
+                    {products.map(product => (
+                        <div key={product.id} className="product-card">
+                            <div>
+                                <h3>{product.name}</h3>
+                                <div className="price">${product.price}</div>
+                            </div>
+
+                            <div style={{ marginTop: 8 }}>
+                                {product.raffleActive ? (
+                                    <button className="btn btn-outline" onClick={() => executeAction(`${RAFFLE_API}/enter`, { productId: product.id }, 'Entered Raffle!')}>Enter Raffle</button>
+                                ) : (
+                                    <button className="btn btn-primary" onClick={() => executeAction(`${INTERACTION_API}/cart/add`, { productId: product.id }, 'Added to Cart!')}>Add to Cart</button>
+                                )}
+                                <button className="btn btn-outline" onClick={() => executeAction(`${INTERACTION_API}/wishlist/add`, { productId: product.id }, 'Added to Wishlist!')} style={{ marginLeft: 10 }}>
+                                    Wishlist
+                                </button>
+                                <button className="btn" onClick={() => executeAction(`${PAYMENT_API}/process`, { amount: product.price }, 'Payment Processed!')} style={{ marginLeft: 10, background: '#111', color: '#fff' }}>
+                                    Buy Now
+                                </button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
             </div>
         </div>
     );

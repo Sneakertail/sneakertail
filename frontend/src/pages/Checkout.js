@@ -50,7 +50,7 @@ function Checkout({ user, setMessage }) {
     };
 
     return (
-        <div style={{ padding: 20 }}>
+        <div className="container" style={{ padding: 20 }}>
             <h2>Checkout</h2>
             {items.length === 0 ? (
                 <p>No items in cart</p>
@@ -60,7 +60,7 @@ function Checkout({ user, setMessage }) {
                         <div key={it.id}>{it.name} - ${it.price}</div>
                     ))}
                     <h3>Total: ${total}</h3>
-                    <button onClick={handlePayment} style={{ marginTop: 10, background: 'green', color: 'white' }}>Pay ${total}</button>
+                    <button onClick={handlePayment} style={{ marginTop: 10 }} className="btn btn-primary">Pay ${total}</button>
                 </div>
             )}
         </div>

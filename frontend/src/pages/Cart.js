@@ -24,7 +24,7 @@ function Cart() {
     };
 
     return (
-        <div style={{ padding: 20 }}>
+        <div className="container" style={{ padding: 20 }}>
             <h2>Cart</h2>
             {items.length === 0 ? (
                 <p>Cart is empty</p>
@@ -33,7 +33,7 @@ function Cart() {
                     {items.map(it => (
                         <div key={it.id}>{it.name} - ${it.price}</div>
                     ))}
-                    <button onClick={clearCart} style={{ marginTop: 10 }}>Clear Cart</button>
+                    <button onClick={clearCart} style={{ marginTop: 10 }} className="btn">Clear Cart</button>
                 </div>
             )}
         </div>
