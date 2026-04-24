@@ -18,14 +18,23 @@ function Checkout({ user, showToast, onCartUpdate }) {
         fetch(PRODUCT_API)
             .then(res => res.json())
             .then(products => {
-                const cartProducts = cartIds.map(id => products.find(p => p.id === id)).filter(Boolean);
-                setItems(cartProducts);
+                // Build qty map then convert to array
+                const map = {};
+                cartIds.forEach(id => {
+                    const product = products.find(p => p.id === id);
+                    if (product) {
+                        if (map[id]) { map[id].qty += 1; }
+                        else { map[id] = { ...product, qty: 1 }; }
+                    }
+                });
+                setItems(Object.values(map));
                 setLoading(false);
             })
             .catch(() => { showToast('Failed to load items', 'error'); setLoading(false); });
     }, []);
 
-    const total = items.reduce((s, p) => s + (p.price || 0), 0);
+    const itemCount = items.reduce((s, p) => s + p.qty, 0);
+    const total = items.reduce((s, p) => s + (p.price * p.qty), 0);
     const tax = +(total * 0.08).toFixed(2);
     const grandTotal = +(total + tax).toFixed(2);
 
@@ -97,17 +106,18 @@ function Checkout({ user, showToast, onCartUpdate }) {
                     {/* Items */}
                     <div>
                         <div className="checkout-panel">
-                            <div className="checkout-panel-header">Your Items ({items.length})</div>
+                            <div className="checkout-panel-header">Your Items ({itemCount})</div>
                             <div className="checkout-panel-body">
                                 <div className="list-stack">
-                                    {items.map((item, idx) => (
-                                        <div key={`${item.id}-${idx}`} className="list-card" style={{ padding: '12px' }}>
+                                    {items.map((item) => (
+                                        <div key={item.id} className="list-card" style={{ padding: '12px' }}>
                                             <div className="list-card-img" style={{ width: 56, height: 56, fontSize: 24 }}>👟</div>
                                             <div className="list-card-info">
                                                 <div className="list-card-brand">{item.brand}</div>
                                                 <div className="list-card-name">{item.name}</div>
+                                                <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>Qty: {item.qty}</div>
                                             </div>
-                                            <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--text)', flexShrink: 0 }}>${item.price}</div>
+                                            <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--text)', flexShrink: 0 }}>${(item.price * item.qty).toFixed(2)}</div>
                                         </div>
                                     ))}
                                 </div>
@@ -123,8 +133,8 @@ function Checkout({ user, showToast, onCartUpdate }) {
                         <div className="checkout-panel-header">Payment Summary</div>
                         <div className="checkout-panel-body">
                             <div className="summary-row">
-                                <span>Subtotal</span>
-                                <span>${total}</span>
+                                <span>Subtotal ({itemCount} items)</span>
+                                <span>${total.toFixed(2)}</span>
                             </div>
                             <div className="summary-row">
                                 <span>Tax (8%)</span>

@@ -60,6 +60,19 @@ function Wishlist({ user, showToast, onCartUpdate }) {
                 const cart = JSON.parse(localStorage.getItem('cart') || '[]');
                 cart.push(product.id);
                 localStorage.setItem('cart', JSON.stringify(cart));
+
+                // Remove from wishlist (actual move)
+                const wishlist = JSON.parse(localStorage.getItem('wishlist') || '[]');
+                localStorage.setItem('wishlist', JSON.stringify(wishlist.filter(id => id !== product.id)));
+                if (user) {
+                    fetch(`${INTERACTION_API}/wishlist/remove`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ userId: user.userId, productId: product.id })
+                    }).catch(console.error);
+                }
+                setItems(prev => prev.filter(p => p.id !== product.id));
+
                 onCartUpdate();
                 showToast(`${product.name} moved to cart! 🛒`);
             })

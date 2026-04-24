@@ -28,7 +28,7 @@ function NavBar({ user, setUser, cartCount }) {
                         <Link to="/login" className="btn btn-primary btn-sm">Login</Link>
                     ) : (
                         <>
-                            <span className="user-badge">👤 {user.role}</span>
+                            <span className="user-badge">👤 {user.firstName || user.username || user.role}</span>
                             <button onClick={logout} className="btn btn-outline btn-sm">Logout</button>
                         </>
                     )}

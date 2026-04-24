@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
 function Cart({ user, showToast, onCartUpdate }) {
-    const [items, setItems] = useState([]);
+    const [cartMap, setCartMap] = useState({}); // { productId: { product, qty } }
     const [loading, setLoading] = useState(true);
     const navigate = useNavigate();
 
@@ -11,13 +11,23 @@ function Cart({ user, showToast, onCartUpdate }) {
 
     const loadCart = useCallback(() => {
         const cartIds = JSON.parse(localStorage.getItem('cart') || '[]');
-        if (cartIds.length === 0) { setItems([]); setLoading(false); return; }
+        if (cartIds.length === 0) { setCartMap({}); setLoading(false); return; }
         fetch(PRODUCT_API)
             .then(res => res.json())
             .then(products => {
-                // Keep duplicates — same product can be added multiple times
-                const cartProducts = cartIds.map(id => products.find(p => p.id === id)).filter(Boolean);
-                setItems(cartProducts);
+                // Build quantity map
+                const map = {};
+                cartIds.forEach(id => {
+                    const product = products.find(p => p.id === id);
+                    if (product) {
+                        if (map[id]) {
+                            map[id].qty += 1;
+                        } else {
+                            map[id] = { product, qty: 1 };
+                        }
+                    }
+                });
+                setCartMap(map);
                 setLoading(false);
             })
             .catch(() => { showToast('Failed to load cart', 'error'); setLoading(false); });
@@ -25,29 +35,62 @@ function Cart({ user, showToast, onCartUpdate }) {
 
     useEffect(() => { loadCart(); }, [loadCart]);
 
-    const removeItem = (product, index) => {
-        // Remove from localStorage
-        const cart = JSON.parse(localStorage.getItem('cart') || '[]');
-        // Remove by index (handles duplicates)
-        let removed = false;
-        const newCart = cart.filter((id, i) => {
-            if (!removed && id === product.id) { removed = true; return false; }
-            return true;
+    // Sync cartMap back to localStorage
+    const syncLocalStorage = (map) => {
+        const ids = [];
+        Object.entries(map).forEach(([id, { qty }]) => {
+            for (let i = 0; i < qty; i++) ids.push(Number(id));
         });
-        localStorage.setItem('cart', JSON.stringify(newCart));
+        localStorage.setItem('cart', JSON.stringify(ids));
+        onCartUpdate();
+    };
 
-        // Also call interaction service if user is logged in
+    const changeQty = (productId, delta) => {
+        setCartMap(prev => {
+            const entry = prev[productId];
+            if (!entry) return prev;
+            const newQty = entry.qty + delta;
+            let next;
+            if (newQty <= 0) {
+                next = { ...prev };
+                delete next[productId];
+                showToast(`${entry.product.name} removed from cart`);
+            } else {
+                next = { ...prev, [productId]: { ...entry, qty: newQty } };
+            }
+            syncLocalStorage(next);
+            return next;
+        });
+
+        // Sync with interaction service
+        if (user) {
+            const endpoint = delta > 0 ? 'cart/add' : 'cart/remove';
+            fetch(`${INTERACTION_API}/${endpoint}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: user.userId, productId })
+            }).catch(console.error);
+        }
+    };
+
+    const removeItem = (productId) => {
+        setCartMap(prev => {
+            const entry = prev[productId];
+            const next = { ...prev };
+            delete next[productId];
+            syncLocalStorage(next);
+            if (entry) showToast(`${entry.product.name} removed from cart`);
+            return next;
+        });
+
+        // Clear all of this product from interaction service
         if (user) {
             fetch(`${INTERACTION_API}/cart/remove`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userId: user.userId, productId: product.id })
+                body: JSON.stringify({ userId: user.userId, productId })
             }).catch(console.error);
         }
-
-        setItems(prev => prev.filter((_, i) => i !== index));
-        onCartUpdate();
-        showToast(`${product.name} removed from cart`);
     };
 
     const clearCart = () => {
@@ -59,12 +102,14 @@ function Cart({ user, showToast, onCartUpdate }) {
                 body: JSON.stringify({ userId: user.userId })
             }).catch(console.error);
         }
-        setItems([]);
+        setCartMap({});
         onCartUpdate();
         showToast('Cart cleared');
     };
 
-    const total = items.reduce((s, p) => s + (p.price || 0), 0);
+    const entries = Object.values(cartMap);
+    const itemCount = entries.reduce((s, e) => s + e.qty, 0);
+    const total = entries.reduce((s, e) => s + (e.product.price * e.qty), 0);
 
     if (loading) return (
         <div style={{ textAlign: 'center', padding: '80px 20px', color: 'var(--text2)' }}>Loading cart...</div>
@@ -74,10 +119,10 @@ function Cart({ user, showToast, onCartUpdate }) {
         <div className="container">
             <div className="page-header">
                 <h1 className="page-title">🛒 Your Cart</h1>
-                <p className="page-sub">{items.length} item{items.length !== 1 ? 's' : ''}</p>
+                <p className="page-sub">{itemCount} item{itemCount !== 1 ? 's' : ''}</p>
             </div>
 
-            {items.length === 0 ? (
+            {entries.length === 0 ? (
                 <div className="empty-state">
                     <div className="empty-icon">🛒</div>
                     <div className="empty-title">Your cart is empty</div>
@@ -89,23 +134,37 @@ function Cart({ user, showToast, onCartUpdate }) {
                     {/* Items list */}
                     <div>
                         <div className="list-stack">
-                            {items.map((item, idx) => (
-                                <div key={`${item.id}-${idx}`} className="list-card">
+                            {entries.map(({ product, qty }) => (
+                                <div key={product.id} className="list-card">
                                     <div className="list-card-img">👟</div>
                                     <div className="list-card-info">
-                                        <div className="list-card-brand">{item.brand}</div>
-                                        <div className="list-card-name">{item.name}</div>
-                                        {item.description && (
-                                            <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>{item.category}</div>
-                                        )}
-                                        <div className="list-card-price" style={{ marginTop: 6 }}>${item.price}</div>
+                                        <div className="list-card-brand">{product.brand}</div>
+                                        <div className="list-card-name">{product.name}</div>
+                                        <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>{product.category}</div>
+                                        <div className="list-card-price" style={{ marginTop: 6 }}>${product.price}</div>
                                     </div>
-                                    <div className="list-card-actions">
+                                    <div className="list-card-actions" style={{ flexDirection: 'column', alignItems: 'flex-end', gap: 10 }}>
+                                        {/* Quantity controls */}
+                                        <div className="qty-controls">
+                                            <button
+                                                className="qty-btn"
+                                                onClick={() => changeQty(product.id, -1)}
+                                            >−</button>
+                                            <span className="qty-value">{qty}</span>
+                                            <button
+                                                className="qty-btn"
+                                                onClick={() => changeQty(product.id, 1)}
+                                            >+</button>
+                                        </div>
+                                        {/* Line total */}
+                                        <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text)' }}>
+                                            ${(product.price * qty).toFixed(2)}
+                                        </div>
                                         <button
                                             className="btn btn-danger btn-sm"
-                                            onClick={() => removeItem(item, idx)}
-                                            title="Remove"
-                                        >✕</button>
+                                            onClick={() => removeItem(product.id)}
+                                            title="Remove all"
+                                        >Remove</button>
                                     </div>
                                 </div>
                             ))}
@@ -119,15 +178,17 @@ function Cart({ user, showToast, onCartUpdate }) {
                     <div className="checkout-panel">
                         <div className="checkout-panel-header">Order Summary</div>
                         <div className="checkout-panel-body">
-                            {items.map((item, idx) => (
-                                <div key={`${item.id}-${idx}`} className="summary-row">
-                                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 180 }}>{item.name}</span>
-                                    <span>${item.price}</span>
+                            {entries.map(({ product, qty }) => (
+                                <div key={product.id} className="summary-row">
+                                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 180 }}>
+                                        {product.name} × {qty}
+                                    </span>
+                                    <span>${(product.price * qty).toFixed(2)}</span>
                                 </div>
                             ))}
                             <div className="summary-row total">
-                                <span>Total</span>
-                                <span>${total}</span>
+                                <span>Total ({itemCount} items)</span>
+                                <span>${total.toFixed(2)}</span>
                             </div>
                             <button
                                 className="btn btn-primary btn-full"
