@@ -13,32 +13,57 @@ function App() {
         try {
             const raw = localStorage.getItem('user');
             return raw ? JSON.parse(raw) : null;
-        } catch (e) {
-            return null;
-        }
+        } catch (e) { return null; }
     });
 
-    const [message, setMessage] = useState('');
+    const [toast, setToast] = useState(null); // { msg, type }
+    const [cartCount, setCartCount] = useState(0);
+
+    const refreshCartCount = () => {
+        const cart = JSON.parse(localStorage.getItem('cart') || '[]');
+        setCartCount(cart.length);
+    };
 
     useEffect(() => {
         if (user) localStorage.setItem('user', JSON.stringify(user));
         else localStorage.removeItem('user');
     }, [user]);
 
+    useEffect(() => {
+        refreshCartCount();
+        const onStorage = () => refreshCartCount();
+        window.addEventListener('storage', onStorage);
+        window.addEventListener('cartUpdated', onStorage);
+        return () => {
+            window.removeEventListener('storage', onStorage);
+            window.removeEventListener('cartUpdated', onStorage);
+        };
+    }, []);
+
+    const showToast = (msg, type = 'success') => {
+        setToast({ msg, type });
+        setTimeout(() => setToast(null), 3000);
+    };
+
+    const handleCartUpdate = () => {
+        refreshCartCount();
+        window.dispatchEvent(new Event('cartUpdated'));
+    };
+
     return (
         <div>
-            <NavBar user={user} setUser={setUser} />
-            <div className="container">
-                {message && <div style={{ background: '#ddd', padding: '10px', margin: '10px 0' }}>{message}</div>}
-                <Routes>
-                    <Route path="/" element={<Home user={user} setMessage={setMessage} />} />
-                    <Route path="/cart" element={<Cart />} />
-                    <Route path="/wishlist" element={<Wishlist />} />
-                    <Route path="/checkout" element={<Checkout user={user} setMessage={setMessage} />} />
-                    <Route path="/login" element={<Login setUser={setUser} setMessage={setMessage} />} />
-                    <Route path="/admin" element={<Admin user={user} setMessage={setMessage} />} />
-                </Routes>
-            </div>
+            <NavBar user={user} setUser={setUser} cartCount={cartCount} />
+            {toast && (
+                <div className={`toast ${toast.type}`}>{toast.msg}</div>
+            )}
+            <Routes>
+                <Route path="/" element={<Home user={user} showToast={showToast} onCartUpdate={handleCartUpdate} />} />
+                <Route path="/cart" element={<Cart user={user} showToast={showToast} onCartUpdate={handleCartUpdate} />} />
+                <Route path="/wishlist" element={<Wishlist user={user} showToast={showToast} onCartUpdate={handleCartUpdate} />} />
+                <Route path="/checkout" element={<Checkout user={user} showToast={showToast} onCartUpdate={handleCartUpdate} />} />
+                <Route path="/login" element={<Login setUser={setUser} showToast={showToast} />} />
+                <Route path="/admin" element={<Admin user={user} showToast={showToast} />} />
+            </Routes>
         </div>
     );
 }

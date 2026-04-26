@@ -18,12 +18,21 @@ services:
     ports:
       - "3001:3001"
     environment:
+      # Local seeded users for docker-compose:
+      # admin / admin12345
+      # user / user12345
       - DB_HOST=postgres
       - DB_USER=admin
       - DB_PASSWORD=devpassword
       - DB_NAME=sneakerdb
       - PORT=3001
       - JWT_SECRET=secretkey
+      - ADMIN_USERNAME=admin
+      - ADMIN_EMAIL=admin@sneakertail.com
+      - ADMIN_PASSWORD=admin12345
+      - DEMO_USERNAME=user
+      - DEMO_EMAIL=user@sneakertail.com
+      - DEMO_PASSWORD=user12345
     depends_on:
       - postgres
 
@@ -74,10 +83,10 @@ services:
     build:
       context: ./frontend
       args:
-        REACT_APP_AUTH_API: "http://65.0.183.246:3001/api/auth"
-        REACT_APP_PRODUCT_API: "http://65.0.183.246:3002/api/products"
-        REACT_APP_RAFFLE_API: "http://65.0.183.246:3003/api/raffle"
-        REACT_APP_INTERACTION_API: "http://65.0.183.246:3004/api"
-        REACT_APP_PAYMENT_API: "http://65.0.183.246:3005/api/payment"
+        REACT_APP_AUTH_API: "http://localhost:3001/api/auth"
+        REACT_APP_PRODUCT_API: "http://localhost:3002/api/products"
+        REACT_APP_RAFFLE_API: "http://localhost:3003/api/raffle"
+        REACT_APP_INTERACTION_API: "http://localhost:3004/api"
+        REACT_APP_PAYMENT_API: "http://localhost:3005/api/payment"
     ports:
       - "8080:80"
