@@ -83,10 +83,10 @@ services:
     build:
       context: ./frontend
       args:
-        REACT_APP_AUTH_API: "http://localhost:3001/api/auth"
-        REACT_APP_PRODUCT_API: "http://localhost:3002/api/products"
-        REACT_APP_RAFFLE_API: "http://localhost:3003/api/raffle"
-        REACT_APP_INTERACTION_API: "http://localhost:3004/api"
-        REACT_APP_PAYMENT_API: "http://localhost:3005/api/payment"
+        REACT_APP_AUTH_API: "http://${FRONTEND_PUBLIC_HOST:-localhost}:3001/api/auth"
+        REACT_APP_PRODUCT_API: "http://${FRONTEND_PUBLIC_HOST:-localhost}:3002/api/products"
+        REACT_APP_RAFFLE_API: "http://${FRONTEND_PUBLIC_HOST:-localhost}:3003/api/raffle"
+        REACT_APP_INTERACTION_API: "http://${FRONTEND_PUBLIC_HOST:-localhost}:3004/api"
+        REACT_APP_PAYMENT_API: "http://${FRONTEND_PUBLIC_HOST:-localhost}:3005/api/payment"
     ports:
       - "8080:80"
