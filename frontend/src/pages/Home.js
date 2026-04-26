@@ -1,13 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 
-const PRODUCT_EMOJI = {
-    'Nike': '👟', 'Adidas': '👟', 'New Balance': '👟',
-    'default': '👟'
-};
+function ProductImage({ product, className = 'product-image' }) {
+    const [failed, setFailed] = useState(false);
+    const canShowImage = !!product.image && !failed;
 
-function ProductEmoji({ brand }) {
-    return <span>{PRODUCT_EMOJI[brand] || PRODUCT_EMOJI.default}</span>;
+    return (
+        <div className={className}>
+            {canShowImage ? (
+                <img
+                    src={product.image}
+                    alt={product.name}
+                    className="product-photo"
+                    onError={() => setFailed(true)}
+                />
+            ) : (
+                <div className="product-image-fallback swiss-diagonal">
+                    <span>{product.brand}<br />{product.name}</span>
+                </div>
+            )}
+        </div>
+    );
 }
 
 function Home({ user, showToast, onCartUpdate }) {
@@ -20,15 +33,14 @@ function Home({ user, showToast, onCartUpdate }) {
     const RAFFLE_API = process.env.REACT_APP_RAFFLE_API || '/api/raffle';
     const INTERACTION_API = process.env.REACT_APP_INTERACTION_API || '/api';
 
-    const setBusyKey = (key, val) => setBusy(b => ({ ...b, [key]: val }));
-
+    const setBusyKey = (key, val) => setBusy((current) => ({ ...current, [key]: val }));
     const requireLogin = () => { showToast('Please login first', 'error'); return false; };
 
     const loadProducts = () => {
         setLoading(true);
         fetch(PRODUCT_API)
-            .then(res => res.json())
-            .then(data => {
+            .then((res) => res.json())
+            .then((data) => {
                 setProducts(Array.isArray(data) ? data : []);
                 setLoading(false);
             })
@@ -39,7 +51,7 @@ function Home({ user, showToast, onCartUpdate }) {
     };
 
     const loadRaffleStatuses = (productList) => {
-        const raffleProducts = productList.filter(product => product.raffleActive);
+        const raffleProducts = productList.filter((product) => product.raffleActive);
         if (raffleProducts.length === 0) {
             setRaffleStatuses({});
             return;
@@ -52,18 +64,11 @@ function Home({ user, showToast, onCartUpdate }) {
                     .then((status) => [product.id, status])
                     .catch(() => [product.id, { entered: false, raffleOver: false, isWinner: false, winnerUserId: null, totalEntries: 0 }])
             )
-        ).then((entries) => {
-            setRaffleStatuses(Object.fromEntries(entries));
-        });
+        ).then((entries) => setRaffleStatuses(Object.fromEntries(entries)));
     };
 
-    useEffect(() => {
-        loadProducts();
-    }, []);
-
-    useEffect(() => {
-        loadRaffleStatuses(products);
-    }, [products, user]);
+    useEffect(() => { loadProducts(); }, []);
+    useEffect(() => { loadRaffleStatuses(products); }, [products, user]);
 
     const addToCart = (product) => {
         if (!user) return requireLogin();
@@ -74,13 +79,13 @@ function Home({ user, showToast, onCartUpdate }) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ userId: user.userId, productId: product.id })
         })
-            .then(res => res.json())
+            .then((res) => res.json())
             .then(() => {
                 const cart = JSON.parse(localStorage.getItem('cart') || '[]');
                 cart.push(product.id);
                 localStorage.setItem('cart', JSON.stringify(cart));
                 onCartUpdate();
-                showToast(`${product.name} added to cart!`);
+                showToast(`${product.name} added to cart`);
             })
             .catch(() => showToast('Failed to add to cart', 'error'))
             .finally(() => setBusyKey(key, false));
@@ -95,12 +100,12 @@ function Home({ user, showToast, onCartUpdate }) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ userId: user.userId, productId: product.id })
         })
-            .then(res => res.json())
+            .then((res) => res.json())
             .then(() => {
                 const wishlist = JSON.parse(localStorage.getItem('wishlist') || '[]');
                 if (!wishlist.includes(product.id)) wishlist.push(product.id);
                 localStorage.setItem('wishlist', JSON.stringify(wishlist));
-                showToast(`${product.name} added to wishlist!`);
+                showToast(`${product.name} added to wishlist`);
             })
             .catch(() => showToast('Failed to add to wishlist', 'error'))
             .finally(() => setBusyKey(key, false));
@@ -108,14 +113,14 @@ function Home({ user, showToast, onCartUpdate }) {
 
     const enterRaffle = (product) => {
         if (!user) return requireLogin();
-
         const currentStatus = raffleStatuses[product.id];
+
         if (currentStatus?.entered) {
-            showToast('Already entered this raffle!', 'error');
+            showToast('Already entered this raffle', 'error');
             return;
         }
         if (currentStatus?.raffleOver) {
-            showToast(currentStatus.isWinner ? 'You already won this raffle.' : 'This raffle is already over.', 'error');
+            showToast(currentStatus.isWinner ? 'You already won this raffle' : 'This raffle is already over', 'error');
             return;
         }
 
@@ -128,167 +133,252 @@ function Home({ user, showToast, onCartUpdate }) {
         })
             .then(async (res) => {
                 const data = await res.json();
-                if (!res.ok) {
-                    throw new Error(data.message || 'Failed to enter raffle');
-                }
+                if (!res.ok) throw new Error(data.message || 'Failed to enter raffle');
                 return data;
             })
-            .then(() =>
-                fetch(`${RAFFLE_API}/status/${product.id}/${user.userId}`)
-                    .then((res) => res.json())
-                    .then((status) => {
-                        setRaffleStatuses((prev) => ({ ...prev, [product.id]: status }));
-                        showToast(`You're entered into the ${product.name} raffle!`);
-                    })
-            )
+            .then(() => fetch(`${RAFFLE_API}/status/${product.id}/${user.userId}`))
+            .then((res) => res.json())
+            .then((status) => {
+                setRaffleStatuses((prev) => ({ ...prev, [product.id]: status }));
+                showToast(`Entered ${product.name} raffle`);
+            })
             .catch((error) => showToast(error.message || 'Failed to enter raffle', 'error'))
             .finally(() => setBusyKey(key, false));
     };
 
-    const raffleProducts = products.filter(p => p.raffleActive);
-    const normalProducts = products.filter(p => !p.raffleActive);
+    const raffleProducts = products.filter((product) => product.raffleActive);
+    const normalProducts = products.filter((product) => !product.raffleActive);
+    const heroProduct = products.find((product) => product.image) || products[0];
 
-    if (loading) return (
-        <div style={{ textAlign: 'center', padding: '120px 20px', color: 'var(--text2)' }}>
-            <div style={{ fontSize: 36, marginBottom: 16 }}>👟</div>
-            <div>Loading drops...</div>
-        </div>
-    );
+    if (loading) {
+        return (
+            <div className="container">
+                <div className="empty-state">
+                    <div className="empty-icon">Loading</div>
+                    <div className="empty-title">Loading Drops</div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div>
             <section className="hero">
-                <div className="hero-inner">
-                    <div className="hero-eyebrow">Limited Drops &amp; Raffles</div>
-                    <h1 className="hero-title">SNEAKERTAIL</h1>
-                    <p className="hero-sub">Premium sneakers. Exclusive raffles. Your next grail is here.</p>
-                    <div style={{ display: 'flex', gap: 12, justifyContent: 'center', marginTop: 28 }}>
-                        <Link to="/cart" className="btn btn-primary">Shop Now</Link>
-                        {!user && <Link to="/login" className="btn btn-outline">Login to Enter Raffles</Link>}
+                <div className="container">
+                    <div className="hero-grid">
+                        <div className="hero-copy">
+                            <div>
+                                <div className="hero-meta">01. Current Collection</div>
+                                <h1 className="hero-title">Modern Sneaker Retail, Stripped To Signal.</h1>
+                                <p className="hero-sub">
+                                    A cleaner Sneakertail interface built around product focus, harder typography, sharp structure, and the same shopping and raffle flows you already use.
+                                </p>
+                                <div className="hero-actions">
+                                    <Link to="/cart" className="btn btn-primary">Open Cart</Link>
+                                    {!user && <Link to="/login" className="btn btn-outline">Member Login</Link>}
+                                </div>
+                            </div>
+
+                            <div className="hero-foot">
+                                <div className="hero-stat">
+                                    <span className="micro-label">Products</span>
+                                    <strong>{products.length}</strong>
+                                </div>
+                                <div className="hero-stat">
+                                    <span className="micro-label">Active Raffles</span>
+                                    <strong>{raffleProducts.length}</strong>
+                                </div>
+                                <div className="hero-stat">
+                                    <span className="micro-label">Ready To Buy</span>
+                                    <strong>{normalProducts.length}</strong>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="hero-panel swiss-grid-pattern">
+                            <div className="hero-visual">
+                                {heroProduct ? (
+                                    <>
+                                        <ProductImage product={heroProduct} className="product-image hero-product-image" />
+                                        <div className="hero-visual-copy">
+                                            <div className="micro-label">{heroProduct.brand}</div>
+                                            <div style={{ marginTop: 8, fontWeight: 900, textTransform: 'uppercase' }}>{heroProduct.name}</div>
+                                            <div style={{ marginTop: 8 }}>${heroProduct.price}</div>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <div className="product-image-fallback">Sneakertail</div>
+                                )}
+                            </div>
+                            <div className="hero-panel-grid">
+                                <div className="hero-cell">
+                                    <div>
+                                        <span className="micro-label">Reference</span>
+                                        <strong>Swiss</strong>
+                                    </div>
+                                </div>
+                                <div className="hero-cell swiss-dots">
+                                    <div>
+                                        <span className="micro-label">Retail</span>
+                                        <strong>Nike</strong>
+                                    </div>
+                                </div>
+                                <div className="hero-cell swiss-diagonal">
+                                    <div>
+                                        <span className="micro-label">Mode</span>
+                                        <strong>Shop</strong>
+                                    </div>
+                                </div>
+                                <div className="hero-cell">
+                                    <div>
+                                        <span className="micro-label">State</span>
+                                        <strong>Live</strong>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </section>
 
-            <div className="container">
-                {raffleProducts.length > 0 && (
-                    <section className="section">
-                        <div className="raffle-section">
-                            <div className="raffle-section-title">
-                                Active Raffles
-                                <span className="section-badge">LIVE</span>
-                            </div>
-                            <p className="raffle-section-sub">Enter for a chance to cop. Once a winner is drawn, everyone sees the final result until admin removes the raffle.</p>
-                            <div className="raffle-grid">
-                                {raffleProducts.map(product => {
-                                    const status = raffleStatuses[product.id] || {};
+            {raffleProducts.length > 0 && (
+                <section className="section">
+                    <div className="container">
+                        <div className="section-band">
+                            <aside className="section-rail swiss-dots">
+                                <div className="section-label">02. Raffles</div>
+                                <div className="section-title">Entry Queue</div>
+                                <p className="section-sub">Status is persistent now, so users see the real raffle state after reloads, tab changes, and winner draws.</p>
+                            </aside>
+                            <div className="section-content">
+                                <div className="raffle-section">
+                                    <div style={{ padding: '18px 18px 0' }}>
+                                        <div className="raffle-section-title">
+                                            Active Raffles
+                                            <span className="section-badge">Live</span>
+                                        </div>
+                                        <p className="raffle-section-sub">Direct purchase stays off for raffle inventory. Entry status, winner state, and close state are now coming from the backend.</p>
+                                    </div>
+                                    <div className="raffle-grid">
+                                        {raffleProducts.map((product) => {
+                                            const status = raffleStatuses[product.id] || {};
 
-                                    return (
-                                        <div key={product.id} className="raffle-card">
-                                            <span className="raffle-badge">RAFFLE</span>
-                                            <div className="product-image">
-                                                <ProductEmoji brand={product.brand} />
-                                            </div>
+                                            return (
+                                                <article key={product.id} className="raffle-card">
+                                                    <span className="raffle-badge">Raffle</span>
+                                                    <ProductImage product={product} />
+                                                    <div className="product-body">
+                                                        <div className="product-brand">{product.brand}</div>
+                                                        <div className="product-name">{product.name}</div>
+                                                        <div className="product-desc">{product.description}</div>
+                                                        {product.category && <span className="badge badge-gold">{product.category}</span>}
+                                                    </div>
+                                                    <div className="product-footer">
+                                                        <div>
+                                                            <div className="product-price">${product.price}</div>
+                                                            <div className="product-stock">Entry only</div>
+                                                        </div>
+                                                    </div>
+                                                    <div className="product-actions">
+                                                        {status.isWinner ? (
+                                                            <div className="raffle-entered-badge">You Won This Raffle</div>
+                                                        ) : status.raffleOver ? (
+                                                            <div className="raffle-entered-badge">Raffle Over</div>
+                                                        ) : status.entered ? (
+                                                            <div className="raffle-entered-badge">Entered - Good Luck</div>
+                                                        ) : (
+                                                            <button
+                                                                className="btn btn-primary btn-full"
+                                                                onClick={() => enterRaffle(product)}
+                                                                disabled={busy[`raffle_${product.id}`]}
+                                                            >
+                                                                {busy[`raffle_${product.id}`] ? 'Working' : 'Enter Raffle'}
+                                                            </button>
+                                                        )}
+                                                        <button
+                                                            className="btn btn-outline btn-icon"
+                                                            onClick={() => addToWishlist(product)}
+                                                            disabled={busy[`wish_${product.id}`]}
+                                                            title="Add to Wishlist"
+                                                        >
+                                                            +
+                                                        </button>
+                                                    </div>
+                                                </article>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            )}
+
+            <section className="section">
+                <div className="container">
+                    <div className="section-band">
+                        <aside className="section-rail swiss-grid-pattern">
+                            <div className="section-label">03. Inventory</div>
+                            <div className="section-title">Available Now</div>
+                            <p className="section-sub">A flatter, retail-first layout inspired by the clarity of Nike category pages, but kept inside your existing product, cart, checkout, and admin logic.</p>
+                        </aside>
+                        <div className="section-content">
+                            <div className="section-header">
+                                <div>
+                                    <div className="section-label">Shop Grid</div>
+                                    <div className="section-title">All Sneakers</div>
+                                </div>
+                            </div>
+
+                            {normalProducts.length === 0 ? (
+                                <div className="empty-state">
+                                    <div className="empty-icon">Inventory</div>
+                                    <div className="empty-title">No Products Available</div>
+                                    <div className="empty-sub">Check back soon for new drops.</div>
+                                </div>
+                            ) : (
+                                <div className="product-grid">
+                                    {normalProducts.map((product) => (
+                                        <article key={product.id} className="product-card">
+                                            <ProductImage product={product} />
                                             <div className="product-body">
                                                 <div className="product-brand">{product.brand}</div>
                                                 <div className="product-name">{product.name}</div>
                                                 <div className="product-desc">{product.description}</div>
-                                                {product.category && (
-                                                    <span className="badge badge-gold" style={{ marginTop: 4 }}>{product.category}</span>
-                                                )}
+                                                {product.category && <span className="badge badge-green">{product.category}</span>}
                                             </div>
                                             <div className="product-footer">
                                                 <div>
                                                     <div className="product-price">${product.price}</div>
-                                                    <div className="product-stock">Raffle Entry Only</div>
+                                                    <div className="product-stock">{product.stock > 0 ? `${product.stock} in stock` : 'Out of stock'}</div>
                                                 </div>
                                             </div>
                                             <div className="product-actions">
-                                                {status.isWinner ? (
-                                                    <div className="raffle-entered-badge btn-full">You Won This Raffle!</div>
-                                                ) : status.raffleOver ? (
-                                                    <div className="raffle-entered-badge btn-full">Raffle Over</div>
-                                                ) : status.entered ? (
-                                                    <div className="raffle-entered-badge btn-full">Entered - Good Luck!</div>
-                                                ) : (
-                                                    <button
-                                                        className="btn btn-gold btn-full"
-                                                        onClick={() => enterRaffle(product)}
-                                                        disabled={busy[`raffle_${product.id}`]}
-                                                    >
-                                                        {busy[`raffle_${product.id}`] ? '...' : 'Enter Raffle'}
-                                                    </button>
-                                                )}
+                                                <button
+                                                    className="btn btn-primary btn-full"
+                                                    onClick={() => addToCart(product)}
+                                                    disabled={busy[`cart_${product.id}`] || product.stock === 0}
+                                                >
+                                                    {busy[`cart_${product.id}`] ? 'Working' : 'Add to Cart'}
+                                                </button>
                                                 <button
                                                     className="btn btn-outline btn-icon"
                                                     onClick={() => addToWishlist(product)}
                                                     disabled={busy[`wish_${product.id}`]}
                                                     title="Add to Wishlist"
-                                                >❤</button>
+                                                >
+                                                    +
+                                                </button>
                                             </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                    </section>
-                )}
-
-                <section className="section" style={{ paddingTop: raffleProducts.length > 0 ? 0 : 48 }}>
-                    <div className="section-header">
-                        <div>
-                            <div className="section-label">Available Now</div>
-                            <div className="section-title">Shop All Sneakers</div>
+                                        </article>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     </div>
-                    {normalProducts.length === 0 ? (
-                        <div className="empty-state">
-                            <div className="empty-icon">📦</div>
-                            <div className="empty-title">No products available</div>
-                            <div className="empty-sub">Check back soon for new drops.</div>
-                        </div>
-                    ) : (
-                        <div className="product-grid">
-                            {normalProducts.map(product => (
-                                <div key={product.id} className="product-card">
-                                    <div className="product-image">
-                                        <ProductEmoji brand={product.brand} />
-                                    </div>
-                                    <div className="product-body">
-                                        <div className="product-brand">{product.brand}</div>
-                                        <div className="product-name">{product.name}</div>
-                                        <div className="product-desc">{product.description}</div>
-                                        {product.category && (
-                                            <span className="badge badge-green" style={{ marginTop: 4 }}>{product.category}</span>
-                                        )}
-                                    </div>
-                                    <div className="product-footer">
-                                        <div>
-                                            <div className="product-price">${product.price}</div>
-                                            <div className="product-stock">{product.stock > 0 ? `${product.stock} in stock` : <span style={{ color: 'var(--red)' }}>Out of stock</span>}</div>
-                                        </div>
-                                    </div>
-                                    <div className="product-actions">
-                                        <button
-                                            className="btn btn-primary"
-                                            style={{ flex: 1 }}
-                                            onClick={() => addToCart(product)}
-                                            disabled={busy[`cart_${product.id}`] || product.stock === 0}
-                                        >
-                                            {busy[`cart_${product.id}`] ? '...' : 'Add to Cart'}
-                                        </button>
-                                        <button
-                                            className="btn btn-outline btn-icon"
-                                            onClick={() => addToWishlist(product)}
-                                            disabled={busy[`wish_${product.id}`]}
-                                            title="Add to Wishlist"
-                                        >❤</button>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </section>
-            </div>
+                </div>
+            </section>
         </div>
     );
 }

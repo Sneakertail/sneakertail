@@ -16,7 +16,7 @@ function App() {
         } catch (e) { return null; }
     });
 
-    const [toast, setToast] = useState(null); // { msg, type }
+    const [toast, setToast] = useState(null);
     const [cartCount, setCartCount] = useState(0);
 
     const refreshCartCount = () => {
@@ -51,11 +51,9 @@ function App() {
     };
 
     return (
-        <div>
+        <div className="page-shell">
             <NavBar user={user} setUser={setUser} cartCount={cartCount} />
-            {toast && (
-                <div className={`toast ${toast.type}`}>{toast.msg}</div>
-            )}
+            {toast && <div className={`toast ${toast.type}`}>{toast.msg}</div>}
             <Routes>
                 <Route path="/" element={<Home user={user} showToast={showToast} onCartUpdate={handleCartUpdate} />} />
                 <Route path="/cart" element={<Cart user={user} showToast={showToast} onCartUpdate={handleCartUpdate} />} />

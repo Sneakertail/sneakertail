@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 
 function NavBar({ user, setUser, cartCount }) {
     const navigate = useNavigate();
@@ -12,27 +12,30 @@ function NavBar({ user, setUser, cartCount }) {
         navigate('/');
     };
 
+    const linkClass = ({ isActive }) => `nav-link${isActive ? ' active' : ''}`;
+
     return (
         <header className="navbar">
             <div className="nav-inner">
-                <Link to="/" className="brand">SNEAKERTAIL</Link>
-                <div className="nav-links">
-                    <Link to="/">Home</Link>
+                <NavLink to="/" className="brand">Sneakertail</NavLink>
+
+                <nav className="nav-links" aria-label="Primary">
+                    <NavLink to="/" className={linkClass}>Home</NavLink>
                     <div className="cart-badge-wrap">
-                        <Link to="/cart">Cart</Link>
+                        <NavLink to="/cart" className={linkClass}>Cart</NavLink>
                         {cartCount > 0 && <span className="cart-count">{cartCount}</span>}
                     </div>
-                    <Link to="/wishlist">Wishlist</Link>
-                    {user && user.role === 'admin' && <Link to="/admin">Admin</Link>}
-                    {!user ? (
-                        <Link to="/login" className="btn btn-primary btn-sm">Login</Link>
-                    ) : (
-                        <>
-                            <span className="user-badge">👤 {user.firstName || user.username || user.role}</span>
-                            <button onClick={logout} className="btn btn-outline btn-sm">Logout</button>
-                        </>
-                    )}
-                </div>
+                    <NavLink to="/wishlist" className={linkClass}>Wishlist</NavLink>
+                    {user && user.role === 'admin' && <NavLink to="/admin" className={linkClass}>Admin</NavLink>}
+                    {!user && <NavLink to="/login" className={({ isActive }) => `${linkClass({ isActive })} nav-link-login`}>Login</NavLink>}
+                </nav>
+
+                {user && (
+                    <div className="nav-side">
+                        <span className="user-badge">{user.firstName || user.username || user.role}</span>
+                        <button onClick={logout} className="nav-action">Logout</button>
+                    </div>
+                )}
             </div>
         </header>
     );
