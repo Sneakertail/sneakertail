@@ -7,30 +7,63 @@ const PRODUCT_EMOJI = {
 };
 
 function ProductEmoji({ brand }) {
-    return <span>{PRODUCT_EMOJI[brand] || PRODUCT_EMOJI['default']}</span>;
+    return <span>{PRODUCT_EMOJI[brand] || PRODUCT_EMOJI.default}</span>;
 }
 
 function Home({ user, showToast, onCartUpdate }) {
     const [products, setProducts] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [enteredRaffles, setEnteredRaffles] = useState(new Set());
+    const [raffleStatuses, setRaffleStatuses] = useState({});
     const [busy, setBusy] = useState({});
 
     const PRODUCT_API = process.env.REACT_APP_PRODUCT_API || '/api/products';
     const RAFFLE_API = process.env.REACT_APP_RAFFLE_API || '/api/raffle';
     const INTERACTION_API = process.env.REACT_APP_INTERACTION_API || '/api';
 
-    useEffect(() => {
-        setLoading(true);
-        fetch(PRODUCT_API)
-            .then(res => res.json())
-            .then(data => { setProducts(Array.isArray(data) ? data : []); setLoading(false); })
-            .catch(() => { showToast('Failed to load products', 'error'); setLoading(false); });
-    }, []);
-
     const setBusyKey = (key, val) => setBusy(b => ({ ...b, [key]: val }));
 
     const requireLogin = () => { showToast('Please login first', 'error'); return false; };
+
+    const loadProducts = () => {
+        setLoading(true);
+        fetch(PRODUCT_API)
+            .then(res => res.json())
+            .then(data => {
+                setProducts(Array.isArray(data) ? data : []);
+                setLoading(false);
+            })
+            .catch(() => {
+                showToast('Failed to load products', 'error');
+                setLoading(false);
+            });
+    };
+
+    const loadRaffleStatuses = (productList) => {
+        const raffleProducts = productList.filter(product => product.raffleActive);
+        if (raffleProducts.length === 0) {
+            setRaffleStatuses({});
+            return;
+        }
+
+        Promise.all(
+            raffleProducts.map((product) =>
+                fetch(`${RAFFLE_API}/status/${product.id}/${user?.userId || 'guest'}`)
+                    .then((res) => res.json())
+                    .then((status) => [product.id, status])
+                    .catch(() => [product.id, { entered: false, raffleOver: false, isWinner: false, winnerUserId: null, totalEntries: 0 }])
+            )
+        ).then((entries) => {
+            setRaffleStatuses(Object.fromEntries(entries));
+        });
+    };
+
+    useEffect(() => {
+        loadProducts();
+    }, []);
+
+    useEffect(() => {
+        loadRaffleStatuses(products);
+    }, [products, user]);
 
     const addToCart = (product) => {
         if (!user) return requireLogin();
@@ -43,12 +76,11 @@ function Home({ user, showToast, onCartUpdate }) {
         })
             .then(res => res.json())
             .then(() => {
-                // Also persist in localStorage for offline reading
                 const cart = JSON.parse(localStorage.getItem('cart') || '[]');
                 cart.push(product.id);
                 localStorage.setItem('cart', JSON.stringify(cart));
                 onCartUpdate();
-                showToast(`${product.name} added to cart! 🛒`);
+                showToast(`${product.name} added to cart!`);
             })
             .catch(() => showToast('Failed to add to cart', 'error'))
             .finally(() => setBusyKey(key, false));
@@ -68,7 +100,7 @@ function Home({ user, showToast, onCartUpdate }) {
                 const wishlist = JSON.parse(localStorage.getItem('wishlist') || '[]');
                 if (!wishlist.includes(product.id)) wishlist.push(product.id);
                 localStorage.setItem('wishlist', JSON.stringify(wishlist));
-                showToast(`${product.name} added to wishlist! ❤️`);
+                showToast(`${product.name} added to wishlist!`);
             })
             .catch(() => showToast('Failed to add to wishlist', 'error'))
             .finally(() => setBusyKey(key, false));
@@ -76,10 +108,17 @@ function Home({ user, showToast, onCartUpdate }) {
 
     const enterRaffle = (product) => {
         if (!user) return requireLogin();
-        if (enteredRaffles.has(product.id)) {
+
+        const currentStatus = raffleStatuses[product.id];
+        if (currentStatus?.entered) {
             showToast('Already entered this raffle!', 'error');
             return;
         }
+        if (currentStatus?.raffleOver) {
+            showToast(currentStatus.isWinner ? 'You already won this raffle.' : 'This raffle is already over.', 'error');
+            return;
+        }
+
         const key = `raffle_${product.id}`;
         setBusyKey(key, true);
         fetch(`${RAFFLE_API}/enter`, {
@@ -87,16 +126,22 @@ function Home({ user, showToast, onCartUpdate }) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ userId: user.userId, productId: product.id })
         })
-            .then(res => res.json())
-            .then(data => {
-                if (data.message && data.message.toLowerCase().includes('already')) {
-                    showToast('Already entered this raffle!', 'error');
-                } else {
-                    setEnteredRaffles(s => new Set([...s, product.id]));
-                    showToast(`You're entered into the ${product.name} raffle! 🎰`);
+            .then(async (res) => {
+                const data = await res.json();
+                if (!res.ok) {
+                    throw new Error(data.message || 'Failed to enter raffle');
                 }
+                return data;
             })
-            .catch(() => showToast('Failed to enter raffle', 'error'))
+            .then(() =>
+                fetch(`${RAFFLE_API}/status/${product.id}/${user.userId}`)
+                    .then((res) => res.json())
+                    .then((status) => {
+                        setRaffleStatuses((prev) => ({ ...prev, [product.id]: status }));
+                        showToast(`You're entered into the ${product.name} raffle!`);
+                    })
+            )
+            .catch((error) => showToast(error.message || 'Failed to enter raffle', 'error'))
             .finally(() => setBusyKey(key, false));
     };
 
@@ -112,7 +157,6 @@ function Home({ user, showToast, onCartUpdate }) {
 
     return (
         <div>
-            {/* Hero */}
             <section className="hero">
                 <div className="hero-inner">
                     <div className="hero-eyebrow">Limited Drops &amp; Raffles</div>
@@ -126,63 +170,69 @@ function Home({ user, showToast, onCartUpdate }) {
             </section>
 
             <div className="container">
-                {/* ── Raffle Section ── */}
                 {raffleProducts.length > 0 && (
                     <section className="section">
                         <div className="raffle-section">
                             <div className="raffle-section-title">
-                                🎰 Active Raffles
+                                Active Raffles
                                 <span className="section-badge">LIVE</span>
                             </div>
-                            <p className="raffle-section-sub">Enter for a chance to cop — winners drawn randomly. No direct purchase available.</p>
+                            <p className="raffle-section-sub">Enter for a chance to cop. Once a winner is drawn, everyone sees the final result until admin removes the raffle.</p>
                             <div className="raffle-grid">
-                                {raffleProducts.map(product => (
-                                    <div key={product.id} className="raffle-card">
-                                        <span className="raffle-badge">🎰 RAFFLE</span>
-                                        <div className="product-image">
-                                            <ProductEmoji brand={product.brand} />
-                                        </div>
-                                        <div className="product-body">
-                                            <div className="product-brand">{product.brand}</div>
-                                            <div className="product-name">{product.name}</div>
-                                            <div className="product-desc">{product.description}</div>
-                                            {product.category && (
-                                                <span className="badge badge-gold" style={{ marginTop: 4 }}>{product.category}</span>
-                                            )}
-                                        </div>
-                                        <div className="product-footer">
-                                            <div>
-                                                <div className="product-price">${product.price}</div>
-                                                <div className="product-stock">Raffle Entry Only</div>
+                                {raffleProducts.map(product => {
+                                    const status = raffleStatuses[product.id] || {};
+
+                                    return (
+                                        <div key={product.id} className="raffle-card">
+                                            <span className="raffle-badge">RAFFLE</span>
+                                            <div className="product-image">
+                                                <ProductEmoji brand={product.brand} />
+                                            </div>
+                                            <div className="product-body">
+                                                <div className="product-brand">{product.brand}</div>
+                                                <div className="product-name">{product.name}</div>
+                                                <div className="product-desc">{product.description}</div>
+                                                {product.category && (
+                                                    <span className="badge badge-gold" style={{ marginTop: 4 }}>{product.category}</span>
+                                                )}
+                                            </div>
+                                            <div className="product-footer">
+                                                <div>
+                                                    <div className="product-price">${product.price}</div>
+                                                    <div className="product-stock">Raffle Entry Only</div>
+                                                </div>
+                                            </div>
+                                            <div className="product-actions">
+                                                {status.isWinner ? (
+                                                    <div className="raffle-entered-badge btn-full">You Won This Raffle!</div>
+                                                ) : status.raffleOver ? (
+                                                    <div className="raffle-entered-badge btn-full">Raffle Over</div>
+                                                ) : status.entered ? (
+                                                    <div className="raffle-entered-badge btn-full">Entered - Good Luck!</div>
+                                                ) : (
+                                                    <button
+                                                        className="btn btn-gold btn-full"
+                                                        onClick={() => enterRaffle(product)}
+                                                        disabled={busy[`raffle_${product.id}`]}
+                                                    >
+                                                        {busy[`raffle_${product.id}`] ? '...' : 'Enter Raffle'}
+                                                    </button>
+                                                )}
+                                                <button
+                                                    className="btn btn-outline btn-icon"
+                                                    onClick={() => addToWishlist(product)}
+                                                    disabled={busy[`wish_${product.id}`]}
+                                                    title="Add to Wishlist"
+                                                >❤</button>
                                             </div>
                                         </div>
-                                        <div className="product-actions">
-                                            {enteredRaffles.has(product.id) ? (
-                                                <div className="raffle-entered-badge btn-full">✅ Entered — Good Luck!</div>
-                                            ) : (
-                                                <button
-                                                    className="btn btn-gold btn-full"
-                                                    onClick={() => enterRaffle(product)}
-                                                    disabled={busy[`raffle_${product.id}`]}
-                                                >
-                                                    {busy[`raffle_${product.id}`] ? '...' : '🎰 Enter Raffle'}
-                                                </button>
-                                            )}
-                                            <button
-                                                className="btn btn-outline btn-icon"
-                                                onClick={() => addToWishlist(product)}
-                                                disabled={busy[`wish_${product.id}`]}
-                                                title="Add to Wishlist"
-                                            >❤️</button>
-                                        </div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         </div>
                     </section>
                 )}
 
-                {/* ── Normal Products ── */}
                 <section className="section" style={{ paddingTop: raffleProducts.length > 0 ? 0 : 48 }}>
                     <div className="section-header">
                         <div>
@@ -224,14 +274,14 @@ function Home({ user, showToast, onCartUpdate }) {
                                             onClick={() => addToCart(product)}
                                             disabled={busy[`cart_${product.id}`] || product.stock === 0}
                                         >
-                                            {busy[`cart_${product.id}`] ? '...' : '🛒 Add to Cart'}
+                                            {busy[`cart_${product.id}`] ? '...' : 'Add to Cart'}
                                         </button>
                                         <button
                                             className="btn btn-outline btn-icon"
                                             onClick={() => addToWishlist(product)}
                                             disabled={busy[`wish_${product.id}`]}
                                             title="Add to Wishlist"
-                                        >❤️</button>
+                                        >❤</button>
                                     </div>
                                 </div>
                             ))}

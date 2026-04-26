@@ -18,7 +18,6 @@ function Checkout({ user, showToast, onCartUpdate }) {
         fetch(PRODUCT_API)
             .then(res => res.json())
             .then(products => {
-                // Build qty map then convert to array
                 const map = {};
                 cartIds.forEach(id => {
                     const product = products.find(p => p.id === id);
@@ -38,38 +37,73 @@ function Checkout({ user, showToast, onCartUpdate }) {
     const tax = +(total * 0.08).toFixed(2);
     const grandTotal = +(total + tax).toFixed(2);
 
-    const handlePayment = () => {
+    const purchaseItems = items.map((item) => ({
+        productId: item.id,
+        qty: item.qty,
+        name: item.name,
+        price: item.price,
+    }));
+
+    const handlePayment = async () => {
         if (!user) {
             showToast('Please login to proceed', 'error');
             navigate('/login');
             return;
         }
+
         setPaying(true);
-        fetch(`${PAYMENT_API}/process`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId: user.userId, amount: grandTotal, paymentDetails: {} })
-        })
-            .then(res => res.json())
-            .then(data => {
-                if (data.status === 'SUCCESS') {
-                    setPaid(true);
-                    localStorage.removeItem('cart');
-                    if (user) {
-                        fetch(`${INTERACTION_API}/cart/clear`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ userId: user.userId })
-                        }).catch(console.error);
-                    }
-                    onCartUpdate();
-                    showToast(`Payment successful! Transaction: ${data.transactionId}`);
-                } else {
-                    showToast('Payment declined. Please try again.', 'error');
-                }
-            })
-            .catch(() => showToast('Payment error. Check your connection.', 'error'))
-            .finally(() => setPaying(false));
+        try {
+            const validateResponse = await fetch(`${PRODUCT_API}/validate-purchase`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ items: purchaseItems }),
+            });
+            const validateData = await validateResponse.json();
+            if (!validateResponse.ok || !validateData.valid) {
+                throw new Error((validateData.errors || ['Unable to validate stock']).join(', '));
+            }
+
+            const paymentResponse = await fetch(`${PAYMENT_API}/process`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    userId: user.userId,
+                    amount: grandTotal,
+                    type: 'checkout',
+                    items: purchaseItems,
+                    paymentDetails: {}
+                })
+            });
+            const paymentData = await paymentResponse.json();
+            if (!paymentResponse.ok || paymentData.status !== 'SUCCESS') {
+                throw new Error(paymentData.message || 'Payment declined. Please try again.');
+            }
+
+            const purchaseResponse = await fetch(`${PRODUCT_API}/purchase`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ items: purchaseItems }),
+            });
+            const purchaseData = await purchaseResponse.json();
+            if (!purchaseResponse.ok || purchaseData.status !== 'SUCCESS') {
+                throw new Error((purchaseData.errors || ['Failed to update stock']).join(', '));
+            }
+
+            setPaid(true);
+            localStorage.removeItem('cart');
+            await fetch(`${INTERACTION_API}/cart/clear`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: user.userId })
+            }).catch(console.error);
+
+            onCartUpdate();
+            showToast(`Payment successful! Transaction: ${paymentData.transactionId}`);
+        } catch (error) {
+            showToast(error.message || 'Payment error. Check your connection.', 'error');
+        } finally {
+            setPaying(false);
+        }
     };
 
     if (loading) return (
@@ -103,7 +137,6 @@ function Checkout({ user, showToast, onCartUpdate }) {
                 </div>
             ) : (
                 <div className="checkout-grid">
-                    {/* Items */}
                     <div>
                         <div className="checkout-panel">
                             <div className="checkout-panel-header">Your Items ({itemCount})</div>
@@ -128,7 +161,6 @@ function Checkout({ user, showToast, onCartUpdate }) {
                         </div>
                     </div>
 
-                    {/* Summary */}
                     <div className="checkout-panel">
                         <div className="checkout-panel-header">Payment Summary</div>
                         <div className="checkout-panel-body">
@@ -159,7 +191,7 @@ function Checkout({ user, showToast, onCartUpdate }) {
                             </button>
 
                             <div style={{ textAlign: 'center', fontSize: 12, color: 'var(--text3)', marginTop: 12 }}>
-                                🔒 Secured by Sneakertail Payments
+                                Secured by Sneakertail Payments
                             </div>
                         </div>
                     </div>
